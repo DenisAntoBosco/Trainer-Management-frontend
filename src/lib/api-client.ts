@@ -1,7 +1,7 @@
 import { APIResponse, LoginResponse, User, Trainer, Project, Batch } from '@/types/api';
 import { toast } from '@/hooks/use-toast';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://neoapp/v1';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://neo-eus1-dev-alb-386172655.us-east-1.elb.amazonaws.com:8080/v1';
 const MAX_RETRIES = 3;
 const RETRY_DELAY = 1000;
 
