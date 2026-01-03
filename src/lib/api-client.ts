@@ -112,32 +112,53 @@ class ApiClient {
       throw new Error(error.message || error.detail || 'Login failed');
     }
     
-    const result: APIResponse<LoginResponse> = await response.json();
-    return result.data as LoginResponse;
+    const result = await response.json();
+    console.log('Login response:', result);
+    
+    // Handle backend response format: {"data": {"access_token": "...", "refresh_token": "..."}}
+    if (result.data) {
+      return result.data as LoginResponse;
+    }
+    
+    // Fallback for direct response format
+    return result as LoginResponse;
   }
 
   async logout() {
-    return this.request('/auth/logout', { method: 'POST' });
+    try {
+      await this.request('/auth/logout', { method: 'POST' });
+    } catch (error) {
+      console.error('Logout API call failed:', error);
+    } finally {
+      // Always clear tokens regardless of API call success
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('refresh_token');
+    }
   }
 
   async getCurrentUser(): Promise<User> {
-    const url = `${API_BASE_URL}/users/me`;
     const token = this.getAuthToken();
     
-    const response = await fetch(url, {
+    if (!token) {
+      throw new Error('No authentication token found');
+    }
+    
+    const response = await fetch(`${API_BASE_URL}/users/me`, {
       headers: {
         'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
       },
     });
     
     if (!response.ok) {
-      throw new Error('Failed to get current user');
+      const error = await response.json().catch(() => ({ message: 'Failed to get current user' }));
+      throw new Error(error.message || error.detail || 'Failed to get current user');
     }
     
     const result = await response.json();
-    console.log('getCurrentUser raw response:', result);
+    console.log('getCurrentUser response:', result);
     
-    // Handle both wrapped and unwrapped responses
+    // Handle backend response format
     if (result.data) {
       return result.data;
     }

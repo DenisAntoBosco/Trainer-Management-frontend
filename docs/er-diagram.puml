@@ -1,0 +1,331 @@
+@startuml Training Management System - ER Diagram
+
+' ============================================
+' STYLING
+' ============================================
+skinparam linetype ortho
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+skinparam classFontStyle bold
+skinparam classBorderThickness 2
+
+skinparam class {
+    BackgroundColor<<auth>> #E8F5E9
+    BorderColor<<auth>> #4CAF50
+    BackgroundColor<<core>> #E3F2FD
+    BorderColor<<core>> #2196F3
+    BackgroundColor<<training>> #FFF3E0
+    BorderColor<<training>> #FF9800
+    BackgroundColor<<operations>> #F3E5F5
+    BorderColor<<operations>> #9C27B0
+    BackgroundColor<<enum>> #FAFAFA
+    BorderColor<<enum>> #9E9E9E
+}
+
+' ============================================
+' ENUMS
+' ============================================
+enum app_role <<enum>> {
+    admin
+    hr
+    project_manager
+    trainer
+}
+
+enum trainer_status <<enum>> {
+    available
+    partially_allocated
+    fully_allocated
+    on_leave
+}
+
+enum employment_type <<enum>> {
+    full-time
+    part-time
+    freelance
+    intern
+}
+
+enum experience_level <<enum>> {
+    junior
+    mid
+    senior
+}
+
+enum project_status <<enum>> {
+    active
+    upcoming
+    completed
+}
+
+enum engagement_status <<enum>> {
+    active
+    upcoming
+    completed
+}
+
+enum batch_status <<enum>> {
+    confirmed
+    pending
+    awaiting_confirmation
+}
+
+enum hr_request_status <<enum>> {
+    pending
+    in_progress
+    fulfilled
+}
+
+enum urgency_level <<enum>> {
+    critical
+    high
+    medium
+    low
+}
+
+enum attendance_status <<enum>> {
+    pending
+    present
+    absent
+    half_day
+}
+
+' ============================================
+' AUTH DOMAIN (Managed by Supabase Auth)
+' ============================================
+entity "auth.users" as auth_users <<auth>> {
+    * **id** : uuid <<PK>>
+    --
+    * email : varchar(255)
+    * encrypted_password : varchar(255)
+    email_confirmed_at : timestamp
+    raw_user_meta_data : jsonb
+    * created_at : timestamp
+    updated_at : timestamp
+}
+
+' ============================================
+' CORE DOMAIN
+' ============================================
+entity "profiles" as profiles <<core>> {
+    * **id** : uuid <<PK>> <<FK>>
+    --
+    * name : text
+    * email : text
+    avatar_url : text
+    * created_at : timestamptz
+    * updated_at : timestamptz
+}
+
+entity "user_roles" as user_roles <<core>> {
+    * **id** : uuid <<PK>>
+    --
+    * user_id : uuid <<FK>>
+    * role : app_role
+    * created_at : timestamptz
+    --
+    <<unique>> (user_id, role)
+}
+
+' ============================================
+' TRAINING DOMAIN
+' ============================================
+entity "trainers" as trainers <<training>> {
+    * **id** : uuid <<PK>>
+    --
+    user_id : uuid <<FK>>
+    * name : text
+    * email : text
+    * phone : varchar(20)
+    avatar : text
+    * expertise : text[]
+    * status : trainer_status
+    * max_batches : integer
+    * current_batches : integer
+    * employment_type : employment_type
+    * experience_level : experience_level
+    * join_date : date
+    * created_at : timestamptz
+    * updated_at : timestamptz
+}
+
+entity "projects" as projects <<training>> {
+    * **id** : uuid <<PK>>
+    --
+    * name : text
+    * client_name : text
+    * primary_contact_name : text
+    * primary_contact_email : text
+    * primary_contact_phone : text
+    * project_type : text[]
+    * start_date : date
+    * end_date : date
+    description : text
+    * status : project_status
+    * created_at : timestamptz
+    * created_by : uuid <<FK>>
+}
+
+entity "engagements" as engagements <<training>> {
+    * **id** : uuid <<PK>>
+    --
+    * project_id : uuid <<FK>>
+    * name : text
+    * domain : text
+    * training_type : text
+    * total_students : integer
+    * students_per_batch : integer
+    * start_date : date
+    * end_date : date
+    * status : engagement_status
+    * created_at : timestamptz
+}
+
+entity "batches" as batches <<training>> {
+    * **id** : uuid <<PK>>
+    --
+    * engagement_id : uuid <<FK>>
+    * batch_number : integer
+    * students : integer
+    * start_date : date
+    * end_date : date
+    * status : batch_status
+    trainer_id : uuid <<FK>>
+    confirmed_at : timestamptz
+    confirmed_by : uuid <<FK>>
+    * created_at : timestamptz
+    * updated_at : timestamptz
+}
+
+entity "batch_support_staff" as batch_support <<training>> {
+    * **id** : uuid <<PK>>
+    --
+    * batch_id : uuid <<FK>>
+    * trainer_id : uuid <<FK>>
+    * created_at : timestamptz
+    --
+    <<unique>> (batch_id, trainer_id)
+}
+
+' ============================================
+' OPERATIONS DOMAIN
+' ============================================
+entity "hr_requests" as hr_requests <<operations>> {
+    * **id** : uuid <<PK>>
+    --
+    * project_id : uuid <<FK>>
+    * engagement_id : uuid <<FK>>
+    * domain : text
+    * trainers_needed : integer
+    * urgency : urgency_level
+    * status : hr_request_status
+    notes : text
+    * created_at : timestamptz
+    * created_by : uuid <<FK>>
+    updated_at : timestamptz
+}
+
+entity "trainer_attendance" as attendance <<operations>> {
+    * **id** : uuid <<PK>>
+    --
+    * trainer_id : text
+    * trainer_name : text
+    * batch_id : text
+    * project_id : text
+    * engagement_id : text
+    * date : date
+    * status : attendance_status
+    punch_in : timestamptz
+    punch_out : timestamptz
+    completion_notes : text
+    * created_at : timestamptz
+    * updated_at : timestamptz
+}
+
+entity "notifications" as notifications <<operations>> {
+    * **id** : uuid <<PK>>
+    --
+    * user_id : uuid <<FK>>
+    * title : text
+    * message : text
+    * type : text
+    * is_read : boolean
+    * created_at : timestamptz
+}
+
+' ============================================
+' RELATIONSHIPS
+' ============================================
+
+' Auth relationships
+auth_users ||--o| profiles : "has"
+auth_users ||--o{ user_roles : "has"
+
+' Trainer relationships  
+profiles |o--o| trainers : "may be"
+
+' Project relationships
+profiles ||--o{ projects : "creates"
+projects ||--o{ engagements : "contains"
+engagements ||--o{ batches : "contains"
+
+' Batch allocation relationships
+trainers ||--o{ batches : "assigned to"
+profiles ||--o{ batches : "confirms"
+batches ||--o{ batch_support : "has"
+trainers ||--o{ batch_support : "supports"
+
+' HR Request relationships
+projects ||--o{ hr_requests : "generates"
+engagements ||--o{ hr_requests : "generates"
+profiles ||--o{ hr_requests : "creates"
+
+' Attendance relationships
+trainers ||--o{ attendance : "records"
+batches ||--o{ attendance : "tracks"
+
+' Notification relationships
+profiles ||--o{ notifications : "receives"
+
+' ============================================
+' NOTES
+' ============================================
+note right of auth_users
+    **Managed by Supabase Auth**
+    Contains authentication data.
+    Do not modify directly.
+end note
+
+note right of profiles
+    **RLS Policies:**
+    - Users view own profile
+    - Admins/HR view all
+    - Project managers view all
+end note
+
+note right of user_roles
+    **Security:**
+    Use has_role() function
+    to check permissions.
+end note
+
+note bottom of trainers
+    **Status Calculation:**
+    - available: currentBatches < maxBatches
+    - partially_allocated: 0 < currentBatches < maxBatches
+    - fully_allocated: currentBatches = maxBatches
+end note
+
+note bottom of batches
+    **Workflow:**
+    pending → awaiting_confirmation → confirmed
+end note
+
+note right of attendance
+    **RLS Policies:**
+    - Trainers CRUD own records
+    - Admins full access
+    - PM/HR view access
+end note
+
+@enduml

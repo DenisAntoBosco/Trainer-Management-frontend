@@ -21,6 +21,7 @@ out/
 .env.test.local
 .env.production.local
 .env.*.local
+# Keep .env.development and .env.production for deployment
 
 # Logs
 logs/
