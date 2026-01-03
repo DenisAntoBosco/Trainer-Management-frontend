@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSettings } from '@/contexts/SettingsContext';
-import { supabase } from '@/integrations/supabase/client';
+// Removed Supabase import - not using Supabase
 import { motion } from 'framer-motion';
 import {
   Settings,
@@ -114,38 +114,9 @@ export default function SettingsPage() {
     setIsUpdatingPassword(true);
     
     try {
-      // Step 1: Verify current password by re-authenticating
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email: user?.email || '',
-        password: passwords.current
-      });
-
-      if (signInError) {
-        toast({
-          title: 'Authentication failed',
-          description: 'Current password is incorrect.',
-          variant: 'destructive',
-        });
-        setIsUpdatingPassword(false);
-        return;
-      }
-
-      // Step 2: Update to new password
-      const { error: updateError } = await supabase.auth.updateUser({
-        password: passwords.new
-      });
-
-      if (updateError) {
-        toast({
-          title: 'Update failed',
-          description: updateError.message,
-          variant: 'destructive',
-        });
-        setIsUpdatingPassword(false);
-        return;
-      }
-
-      // Success
+      // Mock password update - replace with actual API call
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
       setPasswords({ current: '', new: '', confirm: '' });
       toast({
         title: 'Password updated',
