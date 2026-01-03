@@ -27,7 +27,7 @@ class ApiClient {
         'Content-Type': 'application/json',
         'Cache-Control': 'no-cache',
         'Pragma': 'no-cache',
-        ...(token && { 'Authorization': `Bearer ${token}` }),
+        ...(token && { 'X-Auth-Token': `Bearer ${token}` }),
         ...options.headers,
       },
       ...options,
@@ -99,7 +99,7 @@ class ApiClient {
       const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
         method: 'POST',
         headers: {
-          'X-Refresh-Token': refreshToken,
+          'X-Refresh': refreshToken,
           'Content-Type': 'application/json',
         },
       });
