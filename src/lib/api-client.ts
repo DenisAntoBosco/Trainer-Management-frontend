@@ -1,7 +1,7 @@
 import { APIResponse, LoginResponse, User, Trainer, Project, Batch } from '@/types/api';
 import { toast } from '@/hooks/use-toast';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://d17wzzb0zpqnvz.cloudfront.net/v1';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://neo-eus1-dev-alb-386172655.us-east-1.elb.amazonaws.com:8080/v1';
 const MAX_RETRIES = 3;
 const RETRY_DELAY = 1000;
 
@@ -90,51 +90,80 @@ class ApiClient {
   async refreshToken(): Promise<boolean> {
     try {
       const refreshToken = this.getRefreshToken();
-      if (!refreshToken) return false;
+      if (!refreshToken) {
+        console.log('No refresh token found');
+        return false;
+      }
 
+      console.log('Attempting token refresh');
       const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
         method: 'POST',
         headers: {
           'X-Refresh-Token': refreshToken,
+          'Content-Type': 'application/json',
         },
       });
 
-      if (!response.ok) return false;
+      console.log('Refresh token response status:', response.status);
 
-      const result: APIResponse<{ access_token: string }> = await response.json();
-      if (result.data?.access_token) {
+      if (!response.ok) {
+        console.error('Refresh token failed:', response.status, response.statusText);
+        return false;
+      }
+
+      const result = await response.json();
+      console.log('Refresh token response:', result);
+      
+      if (result.success && result.data?.access_token) {
         localStorage.setItem('access_token', result.data.access_token);
+        console.log('New access token stored');
         return true;
       }
+      
       return false;
-    } catch {
+    } catch (error) {
+      console.error('Refresh token error:', error);
       return false;
     }
   }
 
   async login(email: string, password: string): Promise<LoginResponse> {
     const url = `${API_BASE_URL}/auth/login`;
+    console.log('Making login request to:', url);
+    
     const response = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password }),
     });
     
+    console.log('Login response status:', response.status);
+    
     if (!response.ok) {
       const error = await response.json().catch(() => ({ message: 'Login failed' }));
+      console.error('Login failed:', error);
       throw new Error(error.message || error.detail || 'Login failed');
     }
     
     const result = await response.json();
-    console.log('Login response:', result);
+    console.log('Login response data:', result);
     
-    // Handle backend response format: {"data": {"access_token": "...", "refresh_token": "..."}}
-    if (result.data) {
-      return result.data as LoginResponse;
+    // Handle backend response format: {"success": true, "data": {"access_token": "...", "refresh_token": "...", "user": {...}}}
+    if (result.success && result.data) {
+      return {
+        access_token: result.data.access_token,
+        refresh_token: result.data.refresh_token,
+        token_type: result.data.token_type || 'bearer',
+        user: result.data.user
+      } as LoginResponse;
     }
     
     // Fallback for direct response format
-    return result as LoginResponse;
+    if (result.access_token) {
+      return result as LoginResponse;
+    }
+    
+    throw new Error('Invalid login response format');
   }
 
   async logout() {
@@ -150,7 +179,9 @@ class ApiClient {
   }
 
   async getCurrentUser(): Promise<User> {
-    return this.request<User>('/users/me');
+    // Add cache-busting query parameter to bypass CloudFront cache
+    const cacheBuster = `?t=${Date.now()}`;
+    return this.request<User>(`/users/me${cacheBuster}`);
   }
 
   async getUsers(params?: { skip?: number; limit?: number }) {
