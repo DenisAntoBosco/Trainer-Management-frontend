@@ -20,40 +20,24 @@ class ApiClient {
 
   private async request<T>(endpoint: string, options: RequestInit = {}, retries = 0): Promise<T> {
     const url = `${API_BASE_URL}${endpoint}`;
-    const token = this.getAuthToken();
 
     const config: RequestInit = {
       headers: {
         'Content-Type': 'application/json',
-        'Cache-Control': 'no-cache',
-        'Pragma': 'no-cache',
-        ...(token && { 'X-Auth-Token': `Bearer ${token}` }),
         ...options.headers,
       },
       ...options,
     };
 
-    console.log(`Making ${config.method || 'GET'} request to ${endpoint}`, {
-      hasToken: !!token,
-      headers: config.headers
-    });
+    console.log(`Making ${config.method || 'GET'} request to ${endpoint}`);
 
     try {
       const response = await fetch(url, config);
       
       console.log(`Response for ${endpoint}:`, {
         status: response.status,
-        statusText: response.statusText,
-        headers: Object.fromEntries(response.headers.entries())
+        statusText: response.statusText
       });
-      
-      if (response.status === 401 && retries === 0) {
-        const refreshed = await this.refreshToken();
-        if (refreshed) {
-          return this.request<T>(endpoint, options, retries + 1);
-        }
-        throw new Error('Session expired. Please login again.');
-      }
       
       if (!response.ok) {
         const error = await response.json().catch(() => ({ message: 'Request failed' }));
@@ -62,7 +46,6 @@ class ApiClient {
       
       const result = await response.json();
       
-      // Handle both wrapped {success, data} and direct responses
       if (result.success === false) {
         throw new Error(result.message || 'Request failed');
       }
@@ -73,7 +56,7 @@ class ApiClient {
       
       return result as T;
     } catch (error: any) {
-      if (retries < MAX_RETRIES && !error.message.includes('Session expired')) {
+      if (retries < MAX_RETRIES) {
         await this.sleep(RETRY_DELAY * (retries + 1));
         return this.request<T>(endpoint, options, retries + 1);
       }
@@ -87,45 +70,7 @@ class ApiClient {
     }
   }
 
-  async refreshToken(): Promise<boolean> {
-    try {
-      const refreshToken = this.getRefreshToken();
-      if (!refreshToken) {
-        console.log('No refresh token found');
-        return false;
-      }
 
-      console.log('Attempting token refresh');
-      const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
-        method: 'POST',
-        headers: {
-          'X-Refresh': refreshToken,
-          'Content-Type': 'application/json',
-        },
-      });
-
-      console.log('Refresh token response status:', response.status);
-
-      if (!response.ok) {
-        console.error('Refresh token failed:', response.status, response.statusText);
-        return false;
-      }
-
-      const result = await response.json();
-      console.log('Refresh token response:', result);
-      
-      if (result.success && result.data?.access_token) {
-        localStorage.setItem('access_token', result.data.access_token);
-        console.log('New access token stored');
-        return true;
-      }
-      
-      return false;
-    } catch (error) {
-      console.error('Refresh token error:', error);
-      return false;
-    }
-  }
 
   async login(email: string, password: string): Promise<LoginResponse> {
     const url = `${API_BASE_URL}/auth/login`;
@@ -168,24 +113,22 @@ class ApiClient {
 
   async logout() {
     try {
-      await this.request('/auth/logout', { method: 'POST' });
+      await fetch(`${API_BASE_URL}/auth/logout`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
     } catch (error) {
       console.error('Logout API call failed:', error);
     } finally {
-      // Always clear tokens regardless of API call success
       localStorage.removeItem('access_token');
       localStorage.removeItem('refresh_token');
     }
   }
 
   async getCurrentUser(): Promise<User> {
-    const token = this.getAuthToken();
     const response = await fetch(`${API_BASE_URL}/users/me`, {
       headers: {
-        'X-Auth-Token': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-        'Cache-Control': 'no-cache',
-        'Pragma': 'no-cache'
+        'Content-Type': 'application/json'
       }
     });
     
