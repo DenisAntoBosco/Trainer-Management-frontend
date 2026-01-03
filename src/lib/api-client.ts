@@ -179,9 +179,22 @@ class ApiClient {
   }
 
   async getCurrentUser(): Promise<User> {
-    // Add cache-busting query parameter to bypass CloudFront cache
-    const cacheBuster = `?t=${Date.now()}`;
-    return this.request<User>(`/users/me${cacheBuster}`);
+    const token = this.getAuthToken();
+    const response = await fetch(`${API_BASE_URL}/users/me`, {
+      headers: {
+        'X-Auth-Token': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache'
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error('Failed to get current user');
+    }
+    
+    const result = await response.json();
+    return result.data || result;
   }
 
   async getUsers(params?: { skip?: number; limit?: number }) {
