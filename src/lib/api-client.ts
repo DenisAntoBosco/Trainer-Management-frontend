@@ -139,19 +139,27 @@ class ApiClient {
   async getCurrentUser(): Promise<User> {
     const token = this.getAuthToken();
     
+    console.log('getCurrentUser - token from localStorage:', token ? 'Token exists' : 'No token found');
+    
     if (!token) {
       throw new Error('No authentication token found');
     }
     
+    console.log('Making request to /users/me with Authorization header');
+    
     const response = await fetch(`${API_BASE_URL}/users/me`, {
+      method: 'GET',
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
     });
     
+    console.log('getCurrentUser response status:', response.status);
+    
     if (!response.ok) {
       const error = await response.json().catch(() => ({ message: 'Failed to get current user' }));
+      console.error('getCurrentUser error:', error);
       throw new Error(error.message || error.detail || 'Failed to get current user');
     }
     

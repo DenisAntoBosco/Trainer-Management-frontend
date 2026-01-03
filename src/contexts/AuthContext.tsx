@@ -47,17 +47,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       console.log('AuthContext: Login attempt for:', email);
       const response = await apiClient.login(email, password);
+      console.log('AuthContext: Login response received:', response);
       
       if (response.access_token) {
+        console.log('AuthContext: Storing tokens in localStorage');
         localStorage.setItem('access_token', response.access_token);
-        localStorage.setItem('refresh_token', response.refresh_token);
-        console.log('AuthContext: Tokens saved');
+        if (response.refresh_token) {
+          localStorage.setItem('refresh_token', response.refresh_token);
+        }
+        console.log('AuthContext: Tokens saved, access_token length:', response.access_token.length);
+        
+        // Verify token was stored
+        const storedToken = localStorage.getItem('access_token');
+        console.log('AuthContext: Verified stored token exists:', !!storedToken);
       } else {
+        console.error('AuthContext: No access token in response');
         throw new Error('No access token received');
       }
       
+      // Small delay to ensure localStorage is updated
       await new Promise(resolve => setTimeout(resolve, 100));
       
+      console.log('AuthContext: Fetching current user');
       const currentUser = await apiClient.getCurrentUser();
       console.log('AuthContext: User set after login:', currentUser);
       setUser(currentUser);
