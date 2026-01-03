@@ -25,14 +25,27 @@ class ApiClient {
     const config: RequestInit = {
       headers: {
         'Content-Type': 'application/json',
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache',
         ...(token && { 'Authorization': `Bearer ${token}` }),
         ...options.headers,
       },
       ...options,
     };
 
+    console.log(`Making ${config.method || 'GET'} request to ${endpoint}`, {
+      hasToken: !!token,
+      headers: config.headers
+    });
+
     try {
       const response = await fetch(url, config);
+      
+      console.log(`Response for ${endpoint}:`, {
+        status: response.status,
+        statusText: response.statusText,
+        headers: Object.fromEntries(response.headers.entries())
+      });
       
       if (response.status === 401 && retries === 0) {
         const refreshed = await this.refreshToken();
@@ -137,40 +150,7 @@ class ApiClient {
   }
 
   async getCurrentUser(): Promise<User> {
-    const token = this.getAuthToken();
-    
-    console.log('getCurrentUser - token from localStorage:', token ? 'Token exists' : 'No token found');
-    
-    if (!token) {
-      throw new Error('No authentication token found');
-    }
-    
-    console.log('Making request to /users/me with Authorization header');
-    
-    const response = await fetch(`${API_BASE_URL}/users/me`, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-    });
-    
-    console.log('getCurrentUser response status:', response.status);
-    
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ message: 'Failed to get current user' }));
-      console.error('getCurrentUser error:', error);
-      throw new Error(error.message || error.detail || 'Failed to get current user');
-    }
-    
-    const result = await response.json();
-    console.log('getCurrentUser response:', result);
-    
-    // Handle backend response format
-    if (result.data) {
-      return result.data;
-    }
-    return result;
+    return this.request<User>('/users/me');
   }
 
   async getUsers(params?: { skip?: number; limit?: number }) {
